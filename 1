@@ -1,0 +1,130 @@
+from load_data import readData 
+from load_data import getlabel
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.layers import Conv2D, ZeroPadding2D, Activation, Input, concatenate
+from tensorflow.keras.models import Model
+from keras.layers.merge import Concatenate
+from keras.layers.core import Lambda, Dense
+from tensorflow. keras.layers import Flatten
+from tensorflow.keras import backend as K
+from tensorflow.keras.regularizers import l2
+import os
+import matplotlib.pyplot as plt 
+import numpy as np
+import math
+from numpy import genfromtxt
+import pandas as pd
+import tensorflow as tf
+import tensorflow_utils as tf_utils
+import numpy.random as rng
+from sklearn.utils import shuffle
+from tensorflow.keras.layers import BatchNormalization
+from sklearn.cross_validation import train_test_split
+from tensorflow.keras.layers import Dense, Dropout, Activation
+from tensorflow.keras.layers import Conv1D, MaxPooling1D
+from tensorflow.keras.datasets import imdb
+from tensorflow.keras.layers import Input
+from tensorflow.keras.layers import Lambda
+from tensorflow.keras import initializers
+from keras.utils import plot_model
+# Shared Input Layer
+
+
+batch_size=32
+epochs=50
+evaluate_every = 200 # interval for evaluating on one-shot tasks
+n_iter = 20000 # No. of training iterations
+N_way = 20 # how many classes for testing one-shot tasks
+n_val = 250 # how many one-shot tasks to validate on
+best = -1
+
+
+my_callbacks = [tf.keras.callbacks.EarlyStopping(patience=2)]
+
+df,reverse=readData()
+clone_labels=getlabel()
+
+#df = df.reshape(df.shape[1:])
+#reverse = reverse.reshape(reverse.shape[1:])
+#df = df.transpose()
+#reverse = reverse.transpose()
+    
+X_train, X_test, y_train, y_test = train_test_split( df, clone_labels,
+                                                    test_size=0.33,random_state=42)
+X_train2, X_test2, y_train2, y_test2 = train_test_split( reverse, clone_labels,
+                                                    test_size=0.33,random_state=42)
+
+
+def get_siamese_model(input_shape):
+    """
+        Model architecture
+    """
+    ############################
+    #CNN
+    initialize_bias=rng.normal(loc=0.5,scale=1e-2,size=shape)
+    # input layer
+    left_input = Input(shape=(24,2))
+    right_input = Input(shape=(24,2))
+    
+    print(left_input)
+    print(right_input)
+    # first feature extractor
+    conv_1 = Conv1D(32, kernel_size=4, activation='relu')(left_input)
+    pool1 = MaxPooling1D(pool_size=(2))(conv_1)
+    flat1 = Flatten()(pool1)
+    # second feature extractor
+    conv_2 = Conv1D(32, kernel_size=4, activation='relu')(right_input)
+    pool2 = MaxPooling1D(pool_size=(2))(conv_2)
+    flat2 = Flatten()(pool2)
+    
+    #merge extracted features 
+    #merge=concatenate([flat1, flat2])
+    # interpretation layer
+    hidden1 = Dense(10, activation='relu')(flat1)
+    hidden2 = Dense(10, activation='relu')(flat2)
+    # prediction output
+    #output = Dense(1, activation='sigmoid')(hidden1)
+    #model = Model(inputs=[left_input,right_input], outputs=output)
+    # prediction output
+    #output12 = Dense(1, activation='linear')(hidden1)
+    output1=Dense(1,activation='sigmoid')(hidden1)
+    output2=Dense(1,activation='sigmoid')(hidden2)
+    
+    merge = concatenate([output1, output2])
+
+    model = Model(inputs=[left_input, right_input],
+                  outputs=merge)
+    
+    ############################
+    # Generate the encodings (feature vectors) for the two pairs
+    #encoded_l = conv_2(left_input)
+    #encoded_r = conv_2(right_input)
+    
+    # Add a customized layer to compute the absolute difference between the encodings
+    L1_layer = Lambda(lambda tensors:K.abs(output1[0] - output2[1]))
+    L1_distance = L1_layer([left_input, right_input])
+    
+    # Add a dense layer with a sigmoid unit to generate the similarity score
+    #prediction = Dense(1,activation='sigmoid',
+     #                  bias_initializer=initializers.Zeros())(L1_distance)
+    prediction=tf.math.sigmoid(L1_distance)
+    
+    # Connect the inputs with the outputs
+    siamese_net = Model(inputs=[left_input,right_input],outputs=prediction)
+    print(type(prediction))
+
+    
+    print(model.summary())
+    return  siamese_net
+
+shape=X_train.shape
+model = get_siamese_model(shape)
+# return the model ##siamese_net
+model.compile(loss=['binary_crossentropy'],
+                      metrics=['accuracy'],optimizer='adam')
+model.fit([X_train,y_train],batch_size=batch_size,
+                      epochs=epochs,verbose=1,
+                      shuffle=True,
+                      )
+predictions=model.predict(X_test)
+print(predictions)
