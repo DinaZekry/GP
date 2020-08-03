@@ -1,0 +1,77 @@
+import os
+import pandas as pd
+import pickle
+import os
+import matplotlib.pyplot as plt
+import time
+import tensorflow as tf
+import csv
+import pandas as pd
+from itertools import chain
+pd.set_option("display.max_colwidth",300)
+pd.set_option("display.max_columns",80)
+from itertools import islice
+
+content_list=[]
+input1=[]
+input2=[]
+paired_input=[]
+clone_labels=[]
+reverse_input=[]
+
+def readData():
+    #open file and trim it into a list
+    with open("C:/Users/metr/Desktop/datasets/train_20per.txt","r+",encoding="UTF-8") as myfile:
+        print("loading and processing")
+        head = list(islice(myfile, 5000))
+    #print(head)
+    
+    #split the metric values. produce a list of values
+    for i in head:
+        content_list.append(i.split("~~"))
+    
+    #produce a list of lists then combine both and then pair them into a list
+    #each pair represents a software metric, each list 2 method metric values in pairs
+    #append label 
+    for j in content_list:
+        j[50]=j[50].rstrip("\n")
+        input1.append(j[3:27]) 
+        input2.append(j[27:51])
+        pair=zip(j[3:27],j[27:51])
+        p=list(pair)
+        #print(len(p))
+        paired_input.append(p) #final list of pairs for each feature
+        res = list(map(list, paired_input)) 
+        clone_labels.append(j[2]) #final label list
+        #reversedPair = zip(j[27:51], j[3:27])
+        #reverse_input.append(reversedPair) #reversed input pairs
+    
+    #print(paired_input)
+    
+    df=pd.DataFrame(list(res), columns=['COMP','NOS','HVOC', 'HEFF',
+                                                 'CREF','XMET', 'LMET', 'NOA','HDIF',
+                                                 'VDEC','EXCT','EXCR', 'CAST','NAND',
+                                                 'VREF','NOPR','MDN','NEXP',
+                                                 'LOOP', 'NBLTRL','NCLTRL','NNLTRL',
+                                                 'NNULLTRL','NSTLTRL'])
+    
+    #reverse=pd.DataFrame(list(reverse_input), columns=['NSTLTRL','NNULLTRL','NNLTRL',
+     #                                                  'NCLTRL','NBLTRL','LOOP',
+      #                                                 'MDN','NEXP','NOPR','VREF'
+       #                                                ,'NAND','CAST','EXCR','EXCT'
+        #                                               ,'VDEC','HDIF','NOA','LMET',
+         #                                              'XMET','CREF','HEFF','HVOC',
+          #                                             'NOS','COMP'])
+   
+   # x=list(chain.from_iterable(df))
+    #y=list(chain.from_iterable(reverse))
+    #print(df)
+    print("DONE!")
+    return (df)
+    #return(x,y)
+
+def getlabel():
+    return (clone_labels)
+
+    
+
